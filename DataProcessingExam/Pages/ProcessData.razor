@@ -1,0 +1,101 @@
+﻿@page "/processdata"
+
+@using System.Timers;
+@implements IDisposable
+
+@inject DataProcessorService dataProcessor
+
+<h1 class="display-">Lorem Ipsum Letters Processor</h1>
+<p class="h5">
+    <em class="text-center">
+        "Neque porro quisquam est qui dolorem ipsum quia dolor sit amet, consectetur, adipisci velit..." <br />
+        "There is no one who loves pain itself, who seeks after it and wants to have it, simply because it is pain..."
+    </em>
+</p>
+
+
+@if (state.State == eServerState.Idle)
+{
+    <button class="btn btn-primary" @onclick="ActivateFileAnalysis">Run File Analysis</button>
+}
+else
+{
+    <p>
+        State: @state.State
+        <br />
+        Execution Time: @state.ProcessTime
+    </p>
+    if (Analyses != null)
+    {
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Letter</th>
+                    <th>Occurrences</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var forecast in Analyses)
+                {
+                    <tr>
+                        <td>@forecast.Letter</td>
+                        <td>@forecast.NumberOfOccurrences</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+    else
+    {
+        <p class="alert-heading">Processing File...</p>
+    }
+}
+
+@code {
+    private List<WordAnalysis> Analyses;
+    private Timer timer;
+    private ServerState state;
+
+    protected override void OnInitialized()
+    {
+        state = dataProcessor.GeteServerState();
+        if (state.State == eServerState.Completed)
+        {
+            Analyses = dataProcessor.GetLastResult;
+        }
+        base.OnInitialized();
+    }
+
+    private async Task ActivateFileAnalysis()
+    {
+        Analyses = await dataProcessor.ProcessData();
+    }
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (firstRender)
+        {
+            timer = new Timer
+            {
+                Interval = 1000,
+                AutoReset = true,
+            };
+            timer.Elapsed += OnTimerInterval;
+            timer.Enabled = true;
+        }
+
+        base.OnAfterRender(firstRender);
+    }
+
+    private void OnTimerInterval(object sender, ElapsedEventArgs e)
+    {
+        state = dataProcessor.GeteServerState();
+
+        InvokeAsync(() => StateHasChanged());
+    }
+
+    public void Dispose()
+    {
+        timer?.Dispose();
+    }
+}
